@@ -1,21 +1,34 @@
 {
   "name": "next-supa-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP Server — official AI companion for the next-supa-utils library",
   "type": "module",
+  "main": "./dist/index.js",
   "bin": {
     "next-supa-mcp": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "llms.txt",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aryaintarann/next-supa-mcp.git"
+  },
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch"
+    "dev": "tsup --watch",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "mcp",
+    "model-context-protocol",
     "next-supa-utils",
     "supabase",
     "nextjs",
-    "ai"
+    "ai",
+    "ai-tools"
   ],
   "license": "MIT",
   "dependencies": {

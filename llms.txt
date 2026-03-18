@@ -1,0 +1,436 @@
+# next-supa-mcp
+
+> MCP Server — Official AI Companion for next-supa-utils
+
+next-supa-mcp is a Model Context Protocol (MCP) server designed to ensure AI assistants always generate Next.js + Supabase code using the `next-supa-utils` library instead of raw boilerplate.
+
+## Installation
+
+```bash
+npm install -g next-supa-mcp
+```
+
+Or clone and build from source:
+
+```bash
+git clone https://github.com/aryaintarann/next-supa-mcp.git
+cd next-supa-mcp
+npm install
+npm run build
+```
+
+## Configuration
+
+### Claude Desktop
+
+```json
+{
+  "mcpServers": {
+    "next-supa-mcp": {
+      "command": "npx",
+      "args": ["-y", "next-supa-mcp"]
+    }
+  }
+}
+```
+
+### Cursor
+
+```json
+{
+  "mcpServers": {
+    "next-supa-mcp": {
+      "command": "npx",
+      "args": ["-y", "next-supa-mcp"]
+    }
+  }
+}
+```
+
+### VS Code (Copilot)
+
+```json
+{
+  "servers": {
+    "next-supa-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "next-supa-mcp"]
+    }
+  }
+}
+```
+
+### Windsurf
+
+```json
+{
+  "mcpServers": {
+    "next-supa-mcp": {
+      "command": "npx",
+      "args": ["-y", "next-supa-mcp"]
+    }
+  }
+}
+```
+
+## Tools
+
+### get_next_supa_utils_docs
+
+Returns the official cheatsheet and usage guide for the next-supa-utils library. Use this FIRST before writing any Next.js + Supabase code.
+
+No input required.
+
+**Output includes:**
+
+Client-side hooks:
+
+```typescript
+import {
+  SupaProvider,      // Optional context provider for custom Supabase URL/Key
+  useSupaUser,       // Get the current authenticated user
+  useSupaSession,    // Get the current session object
+  useSupaUpload,     // Upload files to Supabase Storage
+  useSupaRealtime,   // Subscribe to real-time Postgres changes
+} from 'next-supa-utils/client';
+```
+
+Server-side helpers:
+
+```typescript
+import {
+  withSupaAuth,    // Auth middleware for Next.js middleware.ts
+  createAction,    // Wrapper for Server Actions with auto-injected supabase client
+  routeWrapper,    // Wrapper for Route Handlers (GET, POST, etc.)
+} from 'next-supa-utils/server';
+```
+
+### scaffold_auth_middleware
+
+Generates a complete Next.js `middleware.ts` file that uses `withSupaAuth` from `next-supa-utils/server`.
+
+**Input Schema:**
+
+```typescript
+{
+  routes: Array<{
+    path: string;              // e.g. "/dashboard" or "/admin/:path*"
+    allowedRoles?: string[];   // e.g. ["admin", "editor"]
+  }>;
+  redirectTo?: string;         // Default: "/login"
+}
+```
+
+**Example Input:**
+
+```json
+{
+  "routes": [
+    { "path": "/dashboard" },
+    { "path": "/admin/:path*", "allowedRoles": ["admin"] }
+  ],
+  "redirectTo": "/login"
+}
+```
+
+**Example Output:**
+
+```typescript
+// middleware.ts
+import { withSupaAuth } from 'next-supa-utils/server';
+
+export default withSupaAuth({
+  routes: [
+    { path: '/dashboard' },
+    { path: '/admin/:path*', allowedRoles: ['admin'] },
+  ],
+  redirectTo: '/login',
+});
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+};
+```
+
+### generate_crud_action
+
+Generates a Next.js Server Action function using `createAction` from `next-supa-utils/server`. The `createAction` wrapper automatically injects the Supabase client as the first argument and returns `{ data, error }`.
+
+**Input Schema:**
+
+```typescript
+{
+  tableName: string;                          // e.g. "posts", "users"
+  operation: "insert" | "update" | "delete";  // CRUD operation
+}
+```
+
+**Example Input:**
+
+```json
+{
+  "tableName": "posts",
+  "operation": "insert"
+}
+```
+
+**Example Output (insert):**
+
+```typescript
+'use server';
+
+import { createAction } from 'next-supa-utils/server';
+
+interface CreatePostsInput {
+  title: string;
+  content?: string;
+}
+
+export const createPosts = createAction(
+  async (supabase, input: CreatePostsInput) => {
+    const { data, error } = await supabase
+      .from('posts')
+      .insert(input)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+);
+```
+
+**Example Output (update):**
+
+```typescript
+'use server';
+
+import { createAction } from 'next-supa-utils/server';
+
+interface UpdatePostsInput {
+  id: string;
+  title?: string;
+  content?: string;
+}
+
+export const updatePosts = createAction(
+  async (supabase, input: UpdatePostsInput) => {
+    const { id, ...updateData } = input;
+
+    const { data, error } = await supabase
+      .from('posts')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+);
+```
+
+**Example Output (delete):**
+
+```typescript
+'use server';
+
+import { createAction } from 'next-supa-utils/server';
+
+export const deletePosts = createAction(
+  async (supabase, id: string) => {
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    return { success: true };
+  }
+);
+```
+
+**Client-side usage of createAction results:**
+
+```typescript
+// All createAction functions return { data, error }
+const result = await createPosts({ title: 'Hello World' });
+
+if (result.error) {
+  // result.error is a SupaError with message, code, etc.
+  console.error(result.error.message);
+  return;
+}
+
+// result.data is correctly typed
+console.log(result.data);
+```
+
+### read_supabase_schema
+
+Reads the user's Supabase TypeScript schema file to understand real table and column names. Use this BEFORE generating CRUD actions.
+
+**Input Schema:**
+
+```typescript
+{
+  filePath?: string;  // Default: "types/database.types.ts"
+}
+```
+
+**Example Input:**
+
+```json
+{
+  "filePath": "types/database.types.ts"
+}
+```
+
+Returns the contents of the schema file so the AI can generate accurate code.
+
+## next-supa-utils API Reference
+
+### withSupaAuth (Server Middleware)
+
+```typescript
+import { withSupaAuth } from 'next-supa-utils/server';
+
+// Basic usage - protect routes
+export default withSupaAuth({
+  routes: [
+    { path: '/dashboard' },
+    { path: '/admin/:path*', allowedRoles: ['admin'] },
+  ],
+  redirectTo: '/login',
+});
+```
+
+Full options:
+
+```typescript
+withSupaAuth({
+  routes: RouteConfig[];          // Protected routes with optional RBAC
+  redirectTo?: string;            // Default: "/login"
+  publicRoutes?: string[];        // Routes that bypass auth
+  onAuthSuccess?: Function;       // Callback after successful auth
+  roleExtractor?: Function;       // Custom role extraction logic
+  supabaseUrl?: string;           // Custom Supabase URL
+  supabaseAnonKey?: string;       // Custom anon key
+});
+
+interface RouteConfig {
+  path: string;
+  allowedRoles?: string[];
+}
+```
+
+### createAction (Server Actions)
+
+```typescript
+import { createAction } from 'next-supa-utils/server';
+
+// createAction auto-injects supabase as first argument
+export const getProfile = createAction(
+  async (supabase, userId: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select()
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+);
+```
+
+Signature:
+
+```typescript
+function createAction<TArgs extends unknown[], TResult>(
+  fn: (supabase: SupabaseClient, ...args: TArgs) => Promise<TResult>
+): (...args: TArgs) => Promise<ActionResponse<TResult>>
+
+type ActionResponse<T> =
+  | { data: T; error: null }
+  | { data: null; error: SupaError };
+```
+
+### useSupaUser (Client Hook)
+
+```typescript
+'use client';
+import { useSupaUser } from 'next-supa-utils/client';
+
+export default function Dashboard() {
+  const { user, isLoading } = useSupaUser();
+
+  if (isLoading) return <p>Loading...</p>;
+  if (!user) return <p>Not authenticated</p>;
+
+  return <p>Welcome, {user.email}</p>;
+}
+```
+
+### useSupaSession (Client Hook)
+
+```typescript
+'use client';
+import { useSupaSession } from 'next-supa-utils/client';
+
+export default function SessionInfo() {
+  const { session, isLoading } = useSupaSession();
+
+  if (isLoading) return <p>Loading...</p>;
+
+  return <p>Token expires at: {session?.expires_at}</p>;
+}
+```
+
+### SupaProvider (Client Provider - Optional)
+
+```typescript
+'use client';
+import { SupaProvider } from 'next-supa-utils/client';
+
+// Only needed for custom/multi-tenant Supabase instances
+export default function Layout({ children }) {
+  return (
+    <SupaProvider
+      supabaseUrl="https://your-instance.supabase.co"
+      supabaseAnonKey="your-anon-key"
+    >
+      {children}
+    </SupaProvider>
+  );
+}
+```
+
+### routeWrapper (Route Handlers)
+
+```typescript
+import { routeWrapper } from 'next-supa-utils/server';
+
+export const GET = routeWrapper(async (supabase, request, context) => {
+  const { data, error } = await supabase
+    .from('posts')
+    .select();
+
+  if (error) throw error;
+  return data;
+});
+```
+
+## AI Rules
+
+When using next-supa-utils, AI assistants MUST follow these rules:
+
+1. NEVER use `createServerComponentClient` or `createRouteHandlerClient` from `@supabase/auth-helpers-nextjs`.
+2. NEVER use `@supabase/ssr` directly.
+3. ALWAYS use `createAction()` for Server Actions — it auto-injects the supabase client.
+4. ALWAYS use `withSupaAuth()` for middleware — export it as default.
+5. ALWAYS use `routeWrapper()` for API Route Handlers.
+6. ALWAYS use `useSupaUser()` and `useSupaSession()` for client-side auth state.
+7. Import client hooks from `next-supa-utils/client`.
+8. Import server helpers from `next-supa-utils/server`.
