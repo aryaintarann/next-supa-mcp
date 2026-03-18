@@ -1,6 +1,6 @@
 {
   "name": "next-supa-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "MCP Server — official AI companion for the next-supa-utils library",
   "type": "module",
   "main": "./dist/index.js",
